@@ -6,8 +6,7 @@ Given structs for data/memory objects, along with a test driver that creates 2 p
 # Run
 - Run using a LINUX VM for safety
 - Ensure source.c and header.h files are in the same folder
-- Compile using: `gcc -Wall -D MOCK_MEMORY=1 -o app shm_ipc.c -lm -lrt -lpthread`
-- Shorter compile line: `gcc -Wall -o app shm_ipc.c -lm -lrt -lpthread`
+- Compile using: `gcc -Wall -o app shm_ipc.c -lm -lrt -lpthread`
 - Run using: `./app`
 
 # Expected output from the test suit
