@@ -356,13 +356,3 @@ int main() {
 
     return 0;
 }
-
-// EXTRA NOTES FOR SELF:
-//
-// compile with...
-// gcc -Wall -Wno-unused-function -g -D MOCK_MEMORY=1 -lm -lrt -lpthread -o app shm_ipc.c
-// or
-// gcc -Wall -lm -lrt -lpthread -o app shm_ipc.c
-//
-// run with...
-// ./app
