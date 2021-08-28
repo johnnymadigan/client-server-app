@@ -28,8 +28,23 @@ char* op_names[] = {
 };
 
 /**
- * POST: 
-
+ * Controller: initialise a shared_object_t, creating a block of shared memory
+ * with the designated name, and setting its storage capacity to the size of a
+ * shared data block.
+ *
+ * PRE: n/a
+ *
+ * POST: shm_unlink has been invoked to delete any previous instance of the
+ *       shared memory object, if it exists.
+ * AND   The share name has been saved in shm->name.
+ * AND   shm_open has been invoked to obtain a file descriptor connected to a
+ *       newly created shared memory object with size equal to the size of a
+ *       shared_data_t struct, with support for read and write operations. The
+ *       file descriptor should be saved in shm->fd, regardless of the final outcome.
+ * AND   ftruncate has been invoked to set the size of the shared memory object
+ *       equal to the size of a shared_data_t struct.
+ * AND   mmap has been invoked to obtain a pointer to the shared memory, and the
+ *       result has been stored in shm->data, regardless of the final outcome.
  * AND   (this code is provided for you, don't interfere with it) The shared
  *       semaphore has been initialised to manage access to the shared buffer.
  * AND   Semaphores have been initialised in a waiting state.
@@ -42,13 +57,31 @@ char* op_names[] = {
  *          by shm_open, and shm->data should contain the value returned by mmap.
  */
 bool create_shared_object( shared_memory_t* shm, const char* share_name ) {
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
+    // Remove any previous instance of the shared memory object, if it exists.
     shm_unlink(share_name);
 
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
+    // Assign share name to shm->name.
     shm->name = share_name;
 
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
+    // Invoke 'shm_open()' on shm's name and open the memory for read/write (O_RDWR).
+    // Create then open if it does not exist (O_CREAT).
+    // Set the size equal to the size of a shared_data_t struct.
+    // File descriptor status 'fd' should be saved in shm->fd, regardless of the final outcome.
+    //
+    // FLAGS:
+    //  'O_RDWR'    is for read and write access (cannot be used with readonly)
+    //  'O_RDONLY'  is for readonly (cannot be used with read/write)
+    //  'O_CREAT'   creates the shared memory object if it does not exist
+    //
+    // MODES:
+    //   'S_IWUSR'  indicates write permissions
+    //   'S_IRUSR'  indicates read permissions
+    //   '0666'     indicates both read/write
+    //
+    // Fails if return val is -1
     shm->fd = shm_open(shm->name, O_RDWR | O_CREAT, 0666);
     if (shm->fd == -1) {
         perror("shm_open FAILED in create_shared_object()");
@@ -56,14 +89,17 @@ bool create_shared_object( shared_memory_t* shm, const char* share_name ) {
         return false;
     }
 
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
+    // Set the capacity of the shared memory obj via ftruncate() equal to size of a shared_data_t struct.
+    // If the operation fails (return val is !0), ensure that shm->data is NULL and return false.
     if (ftruncate(shm->fd, sizeof(shared_data_t)) != 0) {
         perror("ftruncate FAILED in create_shared_object()");
         shm->data = NULL;
         return false;
     }
 
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
+    // Grab a pointer to the shared memory, the size MUST be the same size used in ftruncate().
     shm->data = mmap(NULL, sizeof(shared_data_t), PROT_WRITE | PROT_READ, MAP_SHARED, shm->fd, 0);
     if (shm->data == MAP_FAILED) {
         perror("mmap FAILED in create_shared_object()");
@@ -78,17 +114,56 @@ bool create_shared_object( shared_memory_t* shm, const char* share_name ) {
     return true;
 }
 
+/**
+ * Controller: destroys the shared memory object managed by a shared memory
+ * control block.
+ *
+ * PRE: create_shared_object( shm, shm->name ) has previously been
+ *      successfully invoked.
+ *
+ * POST: munmap has been invoked to remove the mapped memory from the address
+ *       space
+ * AND   shm_unlink has been invoked to remove the object
+ * AND   shm->fd == -1
+ * AND   shm->data == NULL.
+ *
+ * \param shm The address of a shared memory control block.
+ */
 void destroy_shared_object( shared_memory_t* shm ) {
-    // INSERT SOLUTION HERE
+    // MY SOLUTION HERE
     munmap(shm, sizeof(shared_data_t));
     shm_unlink(shm->name);
     shm->fd = -1;
     shm->data = NULL;
 }
 
+/**
+ * Controller: Uses shared memory to request and wait for work to be completed
+ * by worker process.
+ *
+ * PRE: create_shared_memory(shm, ...) has previously been invoked, and returned
+ *      true.
+ *
+ * POST: shm->data->operation == op
+ * AND   shm->data->lhs == lhs
+ * AND   shm->data->rhs == rhs
+ * AND   shm->data->result == whatever value the worker has placed there.
+ *
+ * \param shm The address of a shared memory control block.
+ * \param op  The operation code which tells the worker what operation to carry
+ *            out.
+ * \param lhs The first operand.
+ * \param rhs The second operand.
+ * \return Returns the value of shm->data->result, which will be furnished by
+ *         the worker. (The worker may not know the proper rules of arithmetic.
+ *         We accept whatever the worker gives us.)
+ */
 double request_work( shared_memory_t* shm, operation_t op, double lhs, double rhs ) {
+    
     // Copy the supplied values of op, lhs and rhs into the corresponding fields 
     // of the shared data object. 
+    
+    // MY SOLUTION HERE
     shm->data->operation = op;
     shm->data->lhs = lhs;
     shm->data->rhs = rhs;
@@ -101,11 +176,33 @@ double request_work( shared_memory_t* shm, operation_t op, double lhs, double rh
     // Modify the following line to make the function return the result computed 
     // by the worker process. This will be stored in the result field of the 
     // shared data object.
+
+    // MY SOLUTION HERE
     return shm->data->result;
 }
 
+/**
+ * Worker: Get a file descriptor which may be used to interact with a shared memory
+ * object, and map the shared object to get its address.
+ *
+ * PRE: The Controller has previously invoked create_shared_fd to instantiate the
+ *      shared memory object.
+ *
+ * POST: shm_open has been invoked to obtain a file descriptor connected to a
+ *       shared_data_t struct, with support for read and write operations. The
+ *       file descriptor should be saved in shm->fd, regardless of the final outcome.
+ * AND   mmap has been invoked to obtain a pointer to the shared memory, and the
+ *       result has been stored in shm->data, regardless of the final outcome.
+ *
+ * \param share_name The unique identification string of the shared memory object.
+ * \return Returns true if and only if shm->fd >= 0 and
+ *         shm->data != NULL.
+ */
 bool get_shared_object( shared_memory_t* shm, const char* share_name ) {
-
+    // Get a file descriptor connected to shared memory object and save in 
+    // shm->fd. If the operation fails, ensure that shm->data is 
+    // NULL and return false.
+    // MY SOLUTION HERE
     shm->fd = shm_open(share_name, O_RDWR, 0666);
     if (shm->fd == -1) {
         perror("shm_open FAILED in create_shared_object()");
@@ -113,6 +210,9 @@ bool get_shared_object( shared_memory_t* shm, const char* share_name ) {
         return false;
     }
 
+    // Otherwise, attempt to map the shared memory via mmap, and save the address
+    // in shm->data. If mapping fails, return false.
+    // MY SOLUTION HERE
     shm->data = mmap(NULL, sizeof(shared_data_t), PROT_WRITE | PROT_READ, MAP_SHARED, shm->fd, 0);
     if (shm->data == MAP_FAILED) {
         perror("mmap FAILED in create_shared_object()");
@@ -122,15 +222,38 @@ bool get_shared_object( shared_memory_t* shm, const char* share_name ) {
     return true;
 }
 
+/**
+ * Worker: wait for work request, then complete the required action and notify
+ * the controller that the action is complete.
+ *
+ * PRE: get_shared_object(shm, ... ) has been successfully invoked.
+ *
+ * POST: sem_wait has been invoked to pause execution until work is available.
+ * AND   IF shm->data->operation is op_quit
+ *       THEN
+ *           munmap has been invoked to remove the shared data object from the
+ *           address space,
+ *           AND shm->fd == -1
+ *           AND shm->data == NULL
+ *           AND returned value will be false.
+ *       OTHERWISE
+ *          The arithmetic operation corresponding to shm->data->operation
+ *          has been performed, and the resulting value has been assigned to
+ *          shm->data->result. Other shared data fields are preserved as-is.
+ * AND   sem_post has been invoked to notify the controller that the request has
+ *       been processed.
+ *
+ * \param shm The address of a shared memory control structure.
+ * \return Returns true if and only if the operation is no op_quit.
+ */
 bool do_work( shared_memory_t* shm ) {
     bool retVal = true;
 
     // Do not alter the following instruction, which waits for work
     sem_wait( &shm->data->controller_semaphore );
 
-    // Update the value of local variable retVal and/or shm->data->result
-    // as required.
-    // INSERT IMPLEMENTATION HERE
+    // Update the value of local variable retVal and/or shm->data->result as required.
+    // MY SOLUTION HERE
     if (shm->data->operation == 4) {
         retVal = false;
     } else if (shm->data->operation == 3) {
@@ -143,14 +266,13 @@ bool do_work( shared_memory_t* shm ) {
         shm->data->result = shm->data->lhs + shm->data->rhs;
     }
 
-    // Do not alter the following instruction which send the result back to the
-    // controller.
+    // Do not alter the following instruction which send the result back to the controller.
     sem_post( &shm->data->worker_semaphore );
 
     // If retval is false, the memory needs to be unmapped, but that must be 
     // done _after_ posting the semaphore. Un-map the shared data, and assign
     // values to shm->data and shm-fd as noted above.
-    // INSERT IMPLEMENTATION HERE
+    // MY SOLUTION HERE
     if (retVal == false) {
         munmap(shm, sizeof(shared_data_t));
         shm->fd = -1;
@@ -235,6 +357,12 @@ int main() {
     return 0;
 }
 
-
-
-//gcc -Wall -Wno-unused-function -g -D MOCK_MEMORY=1 -lm -lrt -lpthread -o app shm_ipc.c
+// EXTRA NOTES FOR SELF:
+//
+// compile with...
+// gcc -Wall -Wno-unused-function -g -D MOCK_MEMORY=1 -lm -lrt -lpthread -o app shm_ipc.c
+// or
+// gcc -Wall -lm -lrt -lpthread -o app shm_ipc.c
+//
+// run with...
+// ./app
