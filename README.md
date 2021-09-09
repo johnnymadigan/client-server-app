@@ -1,3 +1,7 @@
+![year](https://img.shields.io/badge/Year-2021-lightgrey?style=plastic)
+![author](https://img.shields.io/badge/Author-Johnny%20Madigan-yellow?style=plastic)
+![C](https://img.shields.io/badge/C%20lang-lightgrey?style=plastic&logo=C)
+
 # Client-Server app using POSIX Shared Memory
 My implementation of a simple client-server app using POSIX shared memory to perform inter-process communication.
 
