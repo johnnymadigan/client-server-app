@@ -7,9 +7,8 @@ My implementation of a simple client-server app using POSIX shared memory to per
 
 Given structs for data/memory objects, along with a test driver that creates 2 processes, the challenge is to implement the source code which creates the shared memory object, gets it, and destroys it. Futhermore, being able to request and complete 'work', which is a series of arithmetic equations. 
 
-# Run
-- Run using a LINUX VM for safety
-- Ensure source.c and header.h files are in the same folder
+# Build
+- Use a LINUX VM for safety (VirtualBox)
 - Compile using: `gcc -Wall -o app shm_ipc.c -lm -lrt -lpthread`
 - Run using: `./app`
 
